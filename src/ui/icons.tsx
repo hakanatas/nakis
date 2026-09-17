@@ -144,6 +144,13 @@ export const ZoomIcon = ({ size = 22, className }: IconProps) => (
   </svg>
 );
 
+export const LeafIcon = ({ size = 22, className }: IconProps) => (
+  <svg {...base(size)} className={className}>
+    <path d="M20 4c-8 0-14 4-15.5 11.5C4.2 17 4 18.5 4 20c1.5 0 3-.2 4.5-.5C16 18 20 12 20 4z" />
+    <path d="M4 20c3-5 7-9 12-12" />
+  </svg>
+);
+
 export const TOOL_ICONS: Record<Tool, (p: IconProps) => JSX.Element> = {
   needle: NeedleIcon,
   eraser: EraserIcon,

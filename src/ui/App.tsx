@@ -8,6 +8,7 @@ import { MobileBar, MobileSheets, MobileTop, type MobileSheetId } from './mobile
 import { Drawer } from './overlays';
 import { SettingsPanel, StitchModePanel, ThreadColorsPanel, ToolsPanel } from './panels';
 import { Preview } from './Preview';
+import { SpeciesPanel } from './SpeciesPanel';
 import { Stage } from './Stage';
 
 function DesktopLayout() {
@@ -23,6 +24,7 @@ function DesktopLayout() {
           <Stage />
         </main>
         <aside className="sidebar sidebar--right">
+          <SpeciesPanel />
           <ThreadColorsPanel />
           <SettingsPanel />
           <Preview />
@@ -77,6 +79,7 @@ function TabletLayout() {
         <ToolsPanel />
       </Drawer>
       <Drawer open={drawer === 'right'} side="right" title="Thread and Settings" onClose={close}>
+        <SpeciesPanel />
         <ThreadColorsPanel />
         <SettingsPanel />
         <Preview size={220} />
@@ -90,7 +93,7 @@ function MobileLayout() {
   const close = useCallback(() => setSheet(null), []);
   return (
     <div className="app app--mobile">
-      <MobileTop />
+      <MobileTop onOpen={setSheet} />
       <main className="workspace">
         <Stage />
       </main>

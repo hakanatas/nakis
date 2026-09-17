@@ -2,11 +2,16 @@ import { useEffect, useRef, useState } from 'react';
 import { EmbroideryDocument } from '../core/document';
 import { renderDocument } from '../core/export';
 import type { FabricTextureResult } from '../core/types';
-import { TEMPLATES, type Template } from '../templates';
+import { TEMPLATES, type Template, type TemplateGroup } from '../templates';
 import { useEditor } from './context';
 import { TemplatesIcon } from './icons';
 
 const thumbCache = new Map<string, string>();
+
+const GROUPS: { group: TemplateGroup; label: string }[] = [
+  { group: 'endemic', label: 'Türkiye’nin endemik türleri' },
+  { group: 'classic', label: 'Klasik desenler' },
+];
 
 function templateThumb(t: Template, fabric: FabricTextureResult): string {
   const cached = thumbCache.get(t.id);
@@ -76,28 +81,37 @@ export function TemplatesMenu({ compact = false, onLoaded }: Props) {
       </button>
       {open && (
         <div className="menu__pop menu__pop--down templates" role="menu">
-          <div className="menu__label">Start from a template</div>
-          <div className="templates__grid">
-            {TEMPLATES.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                role="menuitem"
-                className="template"
-                onClick={() => {
-                  setOpen(false);
-                  editor.loadTemplate(t.id);
-                  onLoaded?.();
-                }}
-              >
-                <span className="template__thumb">
-                  {thumbs[t.id] ? <img src={thumbs[t.id]} alt="" /> : <span className="template__skeleton" />}
-                </span>
-                <span className="template__name">{t.name}</span>
-                <span className="template__desc">{t.description}</span>
-              </button>
-            ))}
-          </div>
+          {GROUPS.map(({ group, label }) => (
+            <div key={group} className="templates__group">
+              <div className="menu__label">{label}</div>
+              <div className="templates__grid">
+                {TEMPLATES.filter((t) => t.group === group).map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    role="menuitem"
+                    className="template"
+                    onClick={() => {
+                      setOpen(false);
+                      editor.loadTemplate(t.id);
+                      onLoaded?.();
+                    }}
+                  >
+                    <span className="template__thumb">
+                      {thumbs[t.id] ? <img src={thumbs[t.id]} alt="" /> : <span className="template__skeleton" />}
+                      {t.species && (
+                        <span className="template__emoji" aria-hidden="true">
+                          {t.species.emoji}
+                        </span>
+                      )}
+                    </span>
+                    <span className="template__name">{t.name}</span>
+                    <span className="template__desc">{t.description}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
           <p className="templates__hint">Loading a template replaces the cloth. Undo brings your work back.</p>
         </div>
       )}

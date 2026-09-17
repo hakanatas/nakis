@@ -1144,3 +1144,160 @@ input[type=range]:active::-webkit-slider-thumb {
   }
 }
 
+
+/* ---- Tür Bilgisi (species card) ---- */
+.panel--species {
+  background: #f3f7ef;
+  border-color: #d9e4d1;
+}
+
+.species__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.species__emoji {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: var(--panel);
+  border: 1px solid #d9e4d1;
+  font-size: 26px;
+  flex-shrink: 0;
+}
+
+.species__name {
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1.15;
+  color: var(--ink);
+}
+
+.species__latin {
+  font-size: 13px;
+  font-style: italic;
+  color: var(--ink-3);
+  margin-top: 2px;
+}
+
+.species__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.tag {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--panel);
+  border: 1px solid #d9e4d1;
+  color: var(--ink-2);
+}
+
+.tag--endemic {
+  background: #e3ecda;
+  color: var(--green-ink);
+}
+
+.tag--nadir {
+  background: #fbefcf;
+  color: #7a5a10;
+}
+
+.tag--hassas {
+  background: #fde3c8;
+  color: #8a4a10;
+}
+
+.tag--tehlikede {
+  background: #f9d6d3;
+  color: #8a2b25;
+}
+
+.tag--koruma {
+  background: #d9ebf7;
+  color: #1f4f7a;
+}
+
+.species__facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 10px;
+  margin: 0 0 12px;
+  font-size: 14px;
+}
+
+.species__facts dt {
+  color: var(--ink-3);
+}
+
+.species__facts dd {
+  margin: 0;
+  color: var(--ink);
+}
+
+.species__fact,
+.species__why {
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--ink);
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--panel);
+  border: 1px solid #d9e4d1;
+}
+
+.species__fact {
+  margin-bottom: 8px;
+}
+
+.species__fact strong,
+.species__why strong {
+  color: var(--green-ink);
+}
+
+.species__empty {
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--ink-3);
+}
+
+.sheet__species .panel {
+  border: 0;
+  box-shadow: none;
+  padding: 4px 0 0;
+  background: none;
+}
+
+.sheet__species .panel__title {
+  display: none;
+}
+
+/* ---- template groups ---- */
+.templates__group + .templates__group {
+  margin-top: 6px;
+}
+
+.template__thumb {
+  position: relative;
+}
+
+.template__emoji {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  font-size: 16px;
+  line-height: 1;
+  padding: 3px;
+  border-radius: 8px;
+  background: #fdfcfad9;
+}

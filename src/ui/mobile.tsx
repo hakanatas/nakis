@@ -1,15 +1,16 @@
 import { STITCH_LABELS } from '../core/constants';
 import { useEditor, useEditorState } from './context';
 import { ExportMenu } from './ExportMenu';
-import { Logo, RedoIcon, SaveIcon, SettingsIcon, StitchGlyph, TOOL_ICONS, UndoIcon } from './icons';
+import { LeafIcon, Logo, RedoIcon, SaveIcon, SettingsIcon, StitchGlyph, TOOL_ICONS, UndoIcon } from './icons';
 import { Sheet } from './overlays';
 import { SettingsFields, StitchModeList, Swatches, ToolList } from './panels';
 import { Preview } from './Preview';
+import { SpeciesPanel } from './SpeciesPanel';
 import { TemplatesMenu } from './TemplatesMenu';
 
-export type MobileSheetId = 'stitch' | 'color' | 'tools' | 'settings';
+export type MobileSheetId = 'stitch' | 'color' | 'tools' | 'settings' | 'species';
 
-export function MobileTop() {
+export function MobileTop({ onOpen }: { onOpen: (id: MobileSheetId) => void }) {
   const editor = useEditor();
   const canUndo = useEditorState((s) => s.canUndo);
   const canRedo = useEditorState((s) => s.canRedo);
@@ -21,6 +22,9 @@ export function MobileTop() {
       <span className="mtop__title">StitchCraft</span>
       <div className="header__spacer" />
       <TemplatesMenu compact />
+      <button type="button" className="iconbtn" onClick={() => onOpen('species')} aria-label="Tür bilgisi" title="Tür bilgisi">
+        <LeafIcon size={20} />
+      </button>
       <button type="button" className="iconbtn" onClick={() => editor.undo()} disabled={!canUndo} aria-label="Undo">
         <UndoIcon size={20} />
       </button>
@@ -107,6 +111,11 @@ export function MobileSheets({ open, onClose }: { open: MobileSheetId | null; on
       </Sheet>
       <Sheet open={open === 'tools'} title="Tools" onClose={onClose}>
         <ToolList onPick={onClose} />
+      </Sheet>
+      <Sheet open={open === 'species'} title="Tür Bilgisi" onClose={onClose}>
+        <div className="sheet__species">
+          <SpeciesPanel />
+        </div>
       </Sheet>
       <Sheet open={open === 'settings'} title="Stitch Settings" onClose={onClose}>
         <SettingsFields />

@@ -20,7 +20,8 @@ npm run typecheck  # tsc ile tip kontrolü
 - 7 dikiş türü: running, back, cross, chain, satin, french knot, lazy daisy
 - Araçlar: iğne (çizim), silgi, kaydırma, yakınlaştırma, damlalık (klavye: N, E, H, Z, I)
 - Kumaş dokusu prosedürel olarak üretilir; iplikler gölge, büküm ve parlama ile çizilir
-- 5 hazır şablon (Robot, Wildflowers, Cottage, Sailboat, Hot air balloon)
+- Biyoçeşitlilik teması: Türkiye'nin 7 endemik türü şablon olarak (Van kedisi, Toros kurbağası, Ankara çiğdemi, Kaz Dağı kardeleni, Sığla ağacı, Anadolu yaban koyunu, Abant alası) ve her biri için ilkokul / ortaokul seviyesinde Türkçe "Tür Bilgisi" kartı
+- 5 klasik şablon (Robot, Wildflowers, Cottage, Sailboat, Hot air balloon)
 - Geri al / yinele, IndexedDB'ye otomatik kayıt, PNG (1x / 3x) ve JSON dışa aktarma, JSON içe aktarma
 - Masaüstü, tablet (çekmeceler) ve telefon (alt sayfalar) düzenleri
 
@@ -56,5 +57,6 @@ Sık değiştirilecek yerler:
 - Renk paleti: `src/core/editor.ts` içindeki `PALETTE`
 - Tema renkleri / yazı tipleri: `src/styles.css` başındaki `:root` değişkenleri
 - Varsayılan dikiş ayarları: `src/core/editor.ts` içindeki `INITIAL_STATE`
-- Yeni şablon: `src/templates/` altına dosya ekleyip `index.ts` içindeki `TEMPLATES` listesine kaydedin
+- Yeni şablon: `src/templates/` altına dosya ekleyip `index.ts` içindeki `TEMPLATES` listesine kaydedin. Endemik tür ekliyorsanız aynı dosyada bir `SpeciesInfo` nesnesi (ad, Latince ad, bölge, yaşam alanı, koruma durumu, "Biliyor muydun?") tanımlayıp `species` alanına verin
+- Tür kartı metinleri: her şablon dosyasının başındaki `...Species` nesnesi; koruma durumu etiketleri `src/templates/species.ts`
 - Tuval boyutu: `src/core/constants.ts`

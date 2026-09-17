@@ -12,21 +12,22 @@ import type { FabricTextureResult, Point, Primitive, ProjectData, StitchSettings
 import { Viewport } from './viewport';
 import { defaultProject, findTemplate } from '../templates';
 
+/** Thread colours, tuned to Türkiye's nature: snow, sand, pollen, apricot, poppy, lake, moss, bark. */
 export const PALETTE = [
-  '#f9f6ef',
-  '#e9d5b8',
-  '#f2c33d',
-  '#ef9640',
-  '#f0a3a0',
-  '#c93b3b',
-  '#c77dd1',
-  '#4f8fd0',
-  '#3fb8b4',
-  '#6f9a4f',
-  '#b3a05a',
-  '#8b5a3c',
-  '#b8b8b8',
-  '#1b1b1b',
+  '#f9f6ef', // kar beyazı
+  '#e9d5b8', // kum
+  '#f2c33d', // polen sarısı
+  '#ef9640', // kayısı
+  '#f0a3a0', // pembe
+  '#c93b3b', // gelincik kırmızısı
+  '#c77dd1', // lavanta
+  '#4f8fd0', // göl mavisi
+  '#3fb8b4', // deniz yeşili
+  '#6f9a4f', // yaprak yeşili
+  '#4b7236', // çam yeşili
+  '#8b5a3c', // ağaç kabuğu
+  '#9aa3ad', // kaya grisi
+  '#1b1b1b', // is siyahı
 ];
 
 export interface EditorState {
@@ -42,6 +43,8 @@ export interface EditorState {
   revision: number;
   fabricVersion: number;
   stitchCount: number;
+  /** name of the loaded project (matches a template name when one is loaded) */
+  docName: string;
   dirty: boolean;
   saving: boolean;
   ready: boolean;
@@ -61,6 +64,7 @@ const INITIAL_STATE: EditorState = {
   revision: 0,
   fabricVersion: 0,
   stitchCount: 0,
+  docName: '',
   dirty: false,
   saving: false,
   ready: false,
@@ -93,7 +97,7 @@ export class Editor {
       this.store.set((s) => ({ fabricVersion: s.fabricVersion + 1 }));
     });
     this.doc.subscribe(() => {
-      this.store.set({ revision: this.doc.revision, stitchCount: this.doc.count, dirty: true });
+      this.store.set({ revision: this.doc.revision, stitchCount: this.doc.count, docName: this.doc.name, dirty: true });
       this.viewport.bounds = this.doc.frame();
       this.renderer?.invalidateStitches();
       this.scheduleAutosave();
@@ -114,7 +118,7 @@ export class Editor {
     this.viewport.bounds = this.doc.frame();
     this.history.clear();
     if (this.viewport.width > 0) this.fit();
-    this.store.set({ dirty: false, ready: true });
+    this.store.set({ dirty: false, ready: true, docName: this.doc.name });
   }
 
   attach(
