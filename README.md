@@ -15,6 +15,14 @@ npm run typecheck  # tsc ile tip kontrolü
 
 `dist/` klasörü tamamen statiktir; Wasmer, Netlify, GitHub Pages gibi her statik barındırmaya yüklenebilir.
 
+## GitHub Pages
+
+`.github/workflows/deploy-pages.yml` her push'ta projeyi derleyip Pages'e yayınlar:
+https://hakanatas.github.io/nakis/
+
+İlk kez çalışması için repo ayarlarında **Settings → Pages → Build and deployment → Source** seçeneği
+**GitHub Actions** olmalıdır (iş akışı bunu kendisi de etkinleştirmeye çalışır).
+
 ## Özellikler
 
 - 7 dikiş türü: running, back, cross, chain, satin, french knot, lazy daisy
