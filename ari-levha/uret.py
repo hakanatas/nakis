@@ -1,141 +1,229 @@
-"""Arı nakış levhası: STL (3D baskı) + SVG önizleme üretir. Sadece standart Python."""
-import math, struct
+"""Petek (altıgen) arı nakış levhası: STL + önizleme SVG'leri + desen şeması üretir.
 
-# ---- Parametreler (mm) ----
-ADIM = 5.0          # delikler arası mesafe
-DELIK_CAP = 3.2     # delik çapı
-KALINLIK = 2.4      # levha kalınlığı
-DELIK_X, DELIK_Y = 29, 23   # delik sayısı -> 28 x 22 ilmek karesi
-KENAR = 2           # deliksiz kenar (hücre sayısı, 1 hücre = ADIM)
-N = 16              # delik çemberinin kenar sayısı (4'ün katı olmalı)
+Gerekenler: pip install manifold3d numpy trimesh
+Çalıştırma: python3 uret.py
+"""
+import math
+
+import manifold3d as mf
+import numpy as np
+import trimesh
+
+# ---------------- Parametreler (mm) ----------------
+ADIM = 5.0           # delikler arası mesafe
+DELIK_CAP = 3.0      # delik çapı
+TABAN = 2.2          # levha kalınlığı
+KENAR_YUKSEK = 1.4   # dış çerçevenin tabandan yüksekliği
+KENAR_EN = 4.5       # dış çerçeve genişliği
+KOSE_R = 6.0         # altıgen köşe yuvarlatması
+PAY = 1.6            # en dıştaki delik ile çerçeve arası boşluk
+ASKI_CAP = 6.0       # asma deliği çapı
+FN = 24              # delik çemberi çözünürlüğü
+
+SARI, SIYAH = '#F5B820', '#22201E'
 
 DESEN = [s.rstrip('\n') for s in open('ari_desen.txt') if s.strip()]
 DH, DW = len(DESEN), len(DESEN[0])
-OX = (DELIK_X - 1 - DW) // 2   # deseni ortala (ilmek karesi koordinatı)
-OY = (DELIK_Y - 1 - DH) // 2
-SARI, SIYAH = '#F6C21C', '#1E1E1E'
 
-CX, CY = DELIK_X + 2 * KENAR, DELIK_Y + 2 * KENAR   # toplam hücre sayısı
-W, H = CX * ADIM, CY * ADIM
 
-def delikli(i, j):
-    return KENAR <= i < KENAR + DELIK_X and KENAR <= j < KENAR + DELIK_Y
+# Desen hücresi (c, r) -> köşe delikleri; delik (i, j) -> (x, y), y yukarı, merkez 0
+def delik_xy(i, j):
+    return (i - DW / 2) * ADIM, (DH / 2 - j) * ADIM
 
-# ---- STL ----
-h = ADIM / 2
-angs = [2 * math.pi * k / N for k in range(N)]
-def kare_nokta(a):  # merkezden a açısıyla çıkan ışının kare kenarına değdiği nokta
-    c, s = math.cos(a), math.sin(a)
-    m = max(abs(c), abs(s))
-    return h * c / m, h * s / m
 
-tris = []
-def tri(a, b, c): tris.append((a, b, c))
-def quad(a, b, c, d): tri(a, b, c); tri(a, c, d)
+def altigen_icinde(x, y, apotem):  # sivri tepeli altıgen
+    x, y = abs(x), abs(y)
+    return x <= apotem and 0.5 * x + math.sqrt(3) / 2 * y <= apotem
 
-r = DELIK_CAP / 2
-for i in range(CX):
-    for j in range(CY):
-        mx, my = (i + .5) * ADIM, (j + .5) * ADIM
-        sq = [(mx + x, my + y) for x, y in map(kare_nokta, angs)]
-        for z, up in ((KALINLIK, True), (0.0, False)):
-            if delikli(i, j):
-                ci = [(mx + r * math.cos(a), my + r * math.sin(a)) for a in angs]
-                for k in range(N):
-                    k2 = (k + 1) % N
-                    if up: quad((*ci[k], z), (*sq[k], z), (*sq[k2], z), (*ci[k2], z))
-                    else:  quad((*ci[k], z), (*ci[k2], z), (*sq[k2], z), (*sq[k], z))
-            else:
-                c = (mx, my, z)
-                for k in range(N):
-                    k2 = (k + 1) % N
-                    if up: tri(c, (*sq[k], z), (*sq[k2], z))
-                    else:  tri(c, (*sq[k2], z), (*sq[k], z))
-        if delikli(i, j):  # delik iç duvarı
-            ci = [(mx + r * math.cos(a), my + r * math.sin(a)) for a in angs]
-            for k in range(N):
-                k2 = (k + 1) % N
-                quad((*ci[k2], 0), (*ci[k], 0), (*ci[k], KALINLIK), (*ci[k2], KALINLIK))
-        # dış duvarlar (levha kenarındaki hücreler)
-        for k in range(N):
-            k2 = (k + 1) % N
-            a, b = sq[k], sq[k2]
-            dis = ((i == 0 and abs(a[0] - i * ADIM) < 1e-9 and abs(b[0] - i * ADIM) < 1e-9) or
-                   (i == CX - 1 and abs(a[0] - W) < 1e-9 and abs(b[0] - W) < 1e-9) or
-                   (j == 0 and abs(a[1]) < 1e-9 and abs(b[1]) < 1e-9) or
-                   (j == CY - 1 and abs(a[1] - H) < 1e-9 and abs(b[1] - H) < 1e-9))
-            if dis:
-                quad((*a, 0), (*b, 0), (*b, KALINLIK), (*a, KALINLIK))
 
-def normal(a, b, c):
-    u = [b[t] - a[t] for t in range(3)]; v = [c[t] - a[t] for t in range(3)]
-    n = (u[1]*v[2]-u[2]*v[1], u[2]*v[0]-u[0]*v[2], u[0]*v[1]-u[1]*v[0])
-    l = math.sqrt(sum(x*x for x in n)) or 1
-    return tuple(x / l for x in n)
+def gerekli_apotem():
+    r = DELIK_CAP / 2
+    ic = 0.0
+    for j, row in enumerate(DESEN):
+        for i, ch in enumerate(row):
+            if ch == '.':
+                continue
+            for di in (0, 1):
+                for dj in (0, 1):
+                    x, y = delik_xy(i + di, j + dj)
+                    ic = max(ic, abs(x), 0.5 * abs(x) + math.sqrt(3) / 2 * abs(y))
+    return ic + r + PAY + KENAR_EN
 
-with open('ari_levha.stl', 'wb') as f:
-    f.write(b'ari nakis levhasi'.ljust(80, b' '))
-    f.write(struct.pack('<I', len(tris)))
-    for t in tris:
-        f.write(struct.pack('<3f', *normal(*t)))
-        for p in t: f.write(struct.pack('<3f', *p))
-        f.write(b'\0\0')
 
-# ---- SVG yardımcıları ----
-def delik_xy(hx, hy):  # delik (hx,hy) -> svg koordinatı (y aşağı)
-    return (KENAR + hx + .5) * ADIM, (KENAR + hy + .5) * ADIM
+APOTEM = math.ceil(gerekli_apotem() + 1.0)
+R_TEPE = APOTEM * 2 / math.sqrt(3)
+ASKI_Y = R_TEPE - KOSE_R - 5.0
+IC_APOTEM = APOTEM - KENAR_EN - PAY - DELIK_CAP / 2
 
-def levha_svg(dikisli, olcek=4, baslik=''):
-    s = olcek
-    o = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W*s} {H*s}" width="{W*s}" height="{H*s}">',
-         '<defs><filter id="g" x="-5%" y="-5%" width="110%" height="110%"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-opacity=".35"/></filter></defs>',
-         f'<rect x="0" y="0" width="{W*s}" height="{H*s}" rx="{3*s}" fill="#FFFFFF" stroke="#BDBDBD" stroke-width="2"/>']
-    for hx in range(DELIK_X):
-        for hy in range(DELIK_Y):
-            x, y = delik_xy(hx, hy)
-            o.append(f'<circle cx="{x*s:.1f}" cy="{y*s:.1f}" r="{r*s:.1f}" fill="#9E9E9E"/>')
-    if dikisli:
-        for ry, row in enumerate(DESEN):
-            for rx, ch in enumerate(row):
-                if ch == '.': continue
-                renk = SARI if ch == 'Y' else SIYAH
-                x0, y0 = delik_xy(OX + rx, OY + ry); x1, y1 = delik_xy(OX + rx + 1, OY + ry + 1)
-                g = f'stroke="{renk}" stroke-width="{1.7*s:.1f}" stroke-linecap="round"'
-                o.append(f'<g filter="url(#g)"><line x1="{x0*s:.1f}" y1="{y1*s:.1f}" x2="{x1*s:.1f}" y2="{y0*s:.1f}" {g}/>'
-                         f'<line x1="{x0*s:.1f}" y1="{y0*s:.1f}" x2="{x1*s:.1f}" y2="{y1*s:.1f}" {g}/></g>')
-    o.append('</svg>')
-    return '\n'.join(o)
+delikler = []
+for i in range(-40, 41):
+    for j in range(-40, 41):
+        x, y = delik_xy(i + DW // 2, j + DH // 2)
+        if not altigen_icinde(x, y, IC_APOTEM):
+            continue
+        if math.hypot(x, y - ASKI_Y) < ASKI_CAP / 2 + KENAR_EN + DELIK_CAP:
+            continue
+        delikler.append((i + DW // 2, j + DH // 2, x, y))
 
-open('levha_bos.svg', 'w').write(levha_svg(False))
-open('levha_ari_onizleme.svg', 'w').write(levha_svg(True))
+for j, row in enumerate(DESEN):  # desenin tüm köşe delikleri levhada olmalı
+    for i, ch in enumerate(row):
+        if ch != '.':
+            mevcut = {(a, b) for a, b, _, _ in delikler}
+            assert all((i + a, j + b) in mevcut for a in (0, 1) for b in (0, 1)), (i, j)
 
-# ---- Desen şeması (numaralı kareli) ----
-c = 26; m = 40
-gw, gh = DELIK_X - 1, DELIK_Y - 1
-o = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {gw*c+2*m} {gh*c+2*m+60}" width="{gw*c+2*m}" height="{gh*c+2*m+60}" font-family="Arial,sans-serif">',
-     f'<rect width="100%" height="100%" fill="#fff"/>']
-for ry, row in enumerate(DESEN):
-    for rx, ch in enumerate(row):
-        if ch == '.': continue
-        x, y = m + (OX + rx) * c, m + (OY + ry) * c
-        o.append(f'<rect x="{x}" y="{y}" width="{c}" height="{c}" fill="{SARI if ch=="Y" else SIYAH}"/>')
-        if ch == 'K': o.append(f'<text x="{x+c/2}" y="{y+c*.7}" font-size="13" fill="#fff" text-anchor="middle">S</text>')
-        else: o.append(f'<text x="{x+c/2}" y="{y+c*.7}" font-size="13" fill="#5a4500" text-anchor="middle">A</text>')
-for k in range(gw + 1):
-    w = 2 if k % 5 == 0 else .6
-    o.append(f'<line x1="{m+k*c}" y1="{m}" x2="{m+k*c}" y2="{m+gh*c}" stroke="#777" stroke-width="{w}"/>')
-for k in range(gh + 1):
-    w = 2 if k % 5 == 0 else .6
-    o.append(f'<line x1="{m}" y1="{m+k*c}" x2="{m+gw*c}" y2="{m+k*c}" stroke="#777" stroke-width="{w}"/>')
-for k in range(0, gw + 1, 5):
-    o.append(f'<text x="{m+k*c}" y="{m-10}" font-size="12" text-anchor="middle" fill="#444">{k}</text>')
-for k in range(0, gh + 1, 5):
-    o.append(f'<text x="{m-8}" y="{m+k*c+4}" font-size="12" text-anchor="end" fill="#444">{k}</text>')
+
+# ---------------- 3D model ----------------
+def altigen_kesit(apotem, kose):
+    rr = (apotem - kose) * 2 / math.sqrt(3)
+    pts = [(rr * math.cos(math.radians(90 + 60 * k)), rr * math.sin(math.radians(90 + 60 * k))) for k in range(6)]
+    return mf.CrossSection([pts]).offset(kose, mf.JoinType.Round, circular_segments=48)
+
+
+dis = altigen_kesit(APOTEM, KOSE_R)
+ic = altigen_kesit(APOTEM - KENAR_EN, max(KOSE_R - KENAR_EN, 1.0))
+aski_halka = mf.CrossSection.circle(ASKI_CAP / 2 + KENAR_EN, 48).translate((0, ASKI_Y))
+aski_delik = mf.CrossSection.circle(ASKI_CAP / 2, 48).translate((0, ASKI_Y))
+
+taban = dis.extrude(TABAN)
+cerceve = ((dis - ic) + aski_halka).extrude(TABAN + KENAR_YUKSEK)
+govde = taban + cerceve
+
+kesiciler = [mf.Manifold.cylinder(TABAN + 2, DELIK_CAP / 2, DELIK_CAP / 2, FN).translate((x, y, -1))
+             for _, _, x, y in delikler]
+kesiciler.append(aski_delik.extrude(TABAN + KENAR_YUKSEK + 2).translate((0, 0, -1)))
+levha = govde - mf.Manifold.batch_boolean(kesiciler, mf.OpType.Add)
+
+mesh = levha.to_mesh()
+tm = trimesh.Trimesh(np.array(mesh.vert_properties)[:, :3], np.array(mesh.tri_verts), process=False)
+assert tm.is_watertight
+tm.export('ari_levha.stl')
+
+# ---------------- SVG ortak ----------------
+S = 5  # px / mm
+PAD = 14
+GEN = 2 * APOTEM + 2 * PAD
+YUK = 2 * R_TEPE + 2 * PAD
+
+
+def px(x, y):
+    return (x + APOTEM + PAD) * S, (R_TEPE + PAD - y) * S
+
+
+def altigen_yol(apotem, kose):
+    pts = altigen_kesit(apotem, kose).to_polygons()[0]
+    return 'M' + ' L'.join('%.1f,%.1f' % px(x, y) for x, y in pts) + ' Z'
+
+
+DEFS = '''<defs>
+ <radialGradient id="plaka" cx="40%" cy="30%" r="80%">
+  <stop offset="0" stop-color="#FFFEFA"/><stop offset="1" stop-color="#EDE6D8"/></radialGradient>
+ <linearGradient id="cerceve" x1="0" y1="0" x2="1" y2="1">
+  <stop offset="0" stop-color="#FFFFFF"/><stop offset=".55" stop-color="#F3EEE3"/><stop offset="1" stop-color="#D9D0BF"/></linearGradient>
+ <radialGradient id="delik" cx="38%" cy="35%" r="70%">
+  <stop offset="0" stop-color="#6F675B"/><stop offset=".7" stop-color="#9C9384"/><stop offset="1" stop-color="#CFC6B6"/></radialGradient>
+ <filter id="golge" x="-10%" y="-10%" width="120%" height="125%">
+  <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#3b2a10" flood-opacity=".28"/></filter>
+ <filter id="iplik" x="-20%" y="-20%" width="140%" height="140%">
+  <feDropShadow dx=".6" dy="1.4" stdDeviation="1.1" flood-color="#000" flood-opacity=".38"/></filter>
+</defs>'''
+
+
+def plaka_svg():
+    o = [f'<g filter="url(#golge)"><path d="{altigen_yol(APOTEM, KOSE_R)}" fill="url(#cerceve)"/></g>',
+         f'<path d="{altigen_yol(APOTEM - KENAR_EN, max(KOSE_R - KENAR_EN, 1))}" fill="url(#plaka)" '
+         f'stroke="#D6CDBB" stroke-width="2.5"/>']
+    ax, ay = px(0, ASKI_Y)
+    o.append(f'<circle cx="{ax:.1f}" cy="{ay:.1f}" r="{(ASKI_CAP / 2 + KENAR_EN) * S:.1f}" fill="url(#cerceve)" '
+             f'stroke="#D6CDBB" stroke-width="2"/>')
+    o.append(f'<circle cx="{ax:.1f}" cy="{ay:.1f}" r="{ASKI_CAP / 2 * S:.1f}" fill="url(#delik)"/>')
+    for _, _, x, y in delikler:
+        cx, cy = px(x, y)
+        o.append(f'<circle cx="{cx:.1f}" cy="{cy:.1f}" r="{DELIK_CAP / 2 * S:.1f}" fill="url(#delik)"/>')
+    return o
+
+
+def ilmek_bacak(x0, y0, x1, y1, renk, acik, koyu):
+    a, b = px(x0, y0)
+    c, d = px(x1, y1)
+    w = 1.75 * S
+    nx, ny = (d - b), -(c - a)
+    L = math.hypot(nx, ny)
+    nx, ny = nx / L * w * .18, ny / L * w * .18
+    return (f'<line x1="{a:.1f}" y1="{b:.1f}" x2="{c:.1f}" y2="{d:.1f}" stroke="{renk}" stroke-width="{w:.1f}" stroke-linecap="round"/>'
+            f'<line x1="{a:.1f}" y1="{b:.1f}" x2="{c:.1f}" y2="{d:.1f}" stroke="{koyu}" stroke-width="{w:.1f}" '
+            f'stroke-dasharray="1.6 2.6" stroke-opacity=".35"/>'
+            f'<line x1="{a - nx:.1f}" y1="{b - ny:.1f}" x2="{c - nx:.1f}" y2="{d - ny:.1f}" stroke="{acik}" '
+            f'stroke-width="{w * .28:.1f}" stroke-linecap="round" stroke-opacity=".75"/>')
+
+
+def ilmekler_svg():
+    renk = {'Y': (SARI, '#FFE58A', '#9A6A00'), 'K': (SIYAH, '#6A6560', '#000000')}
+    alt, ust = [], []
+    for j, row in enumerate(DESEN):
+        for i, ch in enumerate(row):
+            if ch == '.':
+                continue
+            x0, y0 = delik_xy(i, j)
+            x1, y1 = delik_xy(i + 1, j + 1)
+            alt.append(ilmek_bacak(x0, y0, x1, y1, *renk[ch]))   # \  alt bacak
+            ust.append(ilmek_bacak(x0, y1, x1, y0, *renk[ch]))   # /  üst bacak
+    return ['<g filter="url(#iplik)">'] + alt + ust + ['</g>']
+
+
+def svg(icerik, arkaplan=None):
+    bg = f'<rect width="100%" height="100%" fill="{arkaplan}"/>' if arkaplan else ''
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {GEN * S:.0f} {YUK * S:.0f}" '
+            f'width="{GEN * S:.0f}" height="{YUK * S:.0f}">{DEFS}{bg}' + '\n'.join(icerik) + '</svg>')
+
+
+open('levha_bos.svg', 'w').write(svg(plaka_svg()))
+open('levha_ari_onizleme.svg', 'w').write(svg(plaka_svg() + ilmekler_svg(), '#F3EDE2'))
+
+# ---------------- Desen şeması ----------------
+c = 30
+i0 = min(i for i, _, _, _ in delikler); i1 = max(i for i, _, _, _ in delikler)
+j0 = min(j for _, j, _, _ in delikler); j1 = max(j for _, j, _, _ in delikler)
+m = 70
+gw, gh = round(2 * APOTEM * c / ADIM + 2 * m), round(2 * R_TEPE * c / ADIM + m + 110)
+mevcut = {(a, b) for a, b, _, _ in delikler}
+o = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {gw} {gh}" width="{gw}" height="{gh}" '
+     f'font-family="Nunito, Arial Rounded MT Bold, Arial, sans-serif">', '<rect width="100%" height="100%" fill="#FFFDF7"/>']
+X = lambda i: m + (APOTEM + (i - DW / 2) * ADIM) * c / ADIM
+Y = lambda j: m + (R_TEPE - (DH / 2 - j) * ADIM) * c / ADIM
+for i in range(i0, i1):
+    for j in range(j0, j1):
+        if all((i + a, j + b) in mevcut for a in (0, 1) for b in (0, 1)):
+            o.append(f'<rect x="{X(i)}" y="{Y(j)}" width="{c}" height="{c}" fill="none" stroke="#E4DCCB" stroke-width="1"/>')
+for j, row in enumerate(DESEN):
+    for i, ch in enumerate(row):
+        if ch == '.':
+            continue
+        fill = SARI if ch == 'Y' else SIYAH
+        o.append(f'<rect x="{X(i) + 1.5}" y="{Y(j) + 1.5}" width="{c - 3}" height="{c - 3}" rx="5" fill="{fill}"/>')
+        o.append(f'<text x="{X(i) + c / 2}" y="{Y(j) + c * .68}" font-size="14" font-weight="700" text-anchor="middle" '
+                 f'fill="{"#7A5300" if ch == "Y" else "#FFFFFF"}">{"A" if ch == "Y" else "S"}</text>')
+for a, b, _, _ in delikler:
+    o.append(f'<circle cx="{X(a)}" cy="{Y(b)}" r="3.2" fill="#B9AE99"/>')
+# levha çerçevesi (mm -> şema koordinatı)
+mm = lambda x, y: (X(x / ADIM + DW / 2), Y(DH / 2 - y / ADIM))
+for ap, kr in ((APOTEM, KOSE_R), (APOTEM - KENAR_EN, max(KOSE_R - KENAR_EN, 1))):
+    pts = altigen_kesit(ap, kr).to_polygons()[0]
+    o.append('<path d="M' + ' L'.join('%.1f,%.1f' % mm(x, y) for x, y in pts) + ' Z" fill="none" stroke="#CFC4AE" stroke-width="2"/>')
+ax, ay = mm(0, ASKI_Y)
+o.append(f'<circle cx="{ax:.1f}" cy="{ay:.1f}" r="{ASKI_CAP / 2 / ADIM * c:.1f}" fill="none" stroke="#CFC4AE" stroke-width="2"/>')
+ox = X(DW // 2)
+o.append(f'<line x1="{ox}" y1="{ay + 30}" x2="{ox}" y2="{Y(j1) + 10}" stroke="#E07B39" stroke-width="2" stroke-dasharray="6 6" opacity=".8"/>')
+o.append(f'<text x="{ox + 8}" y="{Y(j1) + 4}" font-size="14" fill="#E07B39">orta sıra: asma deliğinin tam altındaki delikler</text>')
 ns = sum(r.count('Y') for r in DESEN); nk = sum(r.count('K') for r in DESEN)
-yy = m + gh * c + 40
-o.append(f'<rect x="{m}" y="{yy-16}" width="20" height="20" fill="{SARI}"/><text x="{m+28}" y="{yy}" font-size="16">A = Sarı: {ns} çarpı</text>')
-o.append(f'<rect x="{m+250}" y="{yy-16}" width="20" height="20" fill="{SIYAH}"/><text x="{m+278}" y="{yy}" font-size="16">S = Siyah: {nk} çarpı</text>')
-o.append(f'<text x="{m+gw*c}" y="{yy}" font-size="13" text-anchor="end" fill="#666">Her kare = 4 delik arasında bir çarpı (X)</text>')
+yy = gh - 52
+o.append(f'<rect x="{m}" y="{yy - 18}" width="24" height="24" rx="5" fill="{SARI}"/>'
+         f'<text x="{m + 34}" y="{yy}" font-size="18" fill="#3A3226">A · Sarı — {ns} çarpı</text>')
+o.append(f'<rect x="{m + 250}" y="{yy - 18}" width="24" height="24" rx="5" fill="{SIYAH}"/>'
+         f'<text x="{m + 284}" y="{yy}" font-size="18" fill="#3A3226">S · Siyah — {nk} çarpı</text>')
+o.append(f'<text x="{m}" y="{yy + 30}" font-size="14" fill="#8A7E68">Her kare, 4 delik arasına atılan bir çarpıdır (X). '
+         f'Boş kareler levha rengi kalır: kanatların içi beyaz görünür.</text>')
 o.append('</svg>')
 open('ari_desen_semasi.svg', 'w').write('\n'.join(o))
-print(f'levha {W:.0f} x {H:.0f} x {KALINLIK} mm, {DELIK_X*DELIK_Y} delik, {len(tris)} üçgen; sarı {ns}, siyah {nk}')
+
+print(f'altıgen: köşeden köşeye {2 * R_TEPE:.1f} mm, kenardan kenara {2 * APOTEM:.1f} mm; '
+      f'{len(delikler)} delik; hacim {levha.volume() / 1000:.1f} cm³; sarı {ns}, siyah {nk}')
